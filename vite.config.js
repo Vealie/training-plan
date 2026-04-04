@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react()],
   // Use '/' locally (npm run dev) so you don't need the repo path prefix.
   // On production (npm run build), set this to '/<your-repo-name>/'.
-  base: process.env.NODE_ENV === 'production' ? '/training-plan/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/Training-Plan/' : '/',
 })
