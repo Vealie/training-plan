@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(where node:*)",
+      "Bash(where npm:*)",
+      "Read(//mnt/c/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/Tom/AppData/Roaming/**)",
+      "Bash(cmd //c 'where npm')"
+    ]
+  }
+}
