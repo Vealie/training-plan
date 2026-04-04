@@ -1,11 +1,11 @@
-import { AlertTriangle, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronRight, MinusCircle } from 'lucide-react';
 import { getMissedSessions, suggestMakeupDates, formatDate } from '../../utils/dateUtils.js';
 import { useData } from '../../contexts/DataContext.jsx';
 import { DAY_META } from '../../data/defaultExercises.js';
 
 export default function MissedSessionBanner({ onSelectDay }) {
-  const { sessions } = useData();
-  const missed = getMissedSessions(sessions);
+  const { sessions, skippedDays, toggleSkippedDay } = useData();
+  const missed = getMissedSessions(sessions, skippedDays);
   if (!missed.length) return null;
 
   const suggestions = suggestMakeupDates(missed);
@@ -27,17 +27,27 @@ export default function MissedSessionBanner({ onSelectDay }) {
             <div className="text-xs text-dim" style={{ marginTop: '0.1rem' }}>
               {DAY_META[missedDay]?.split}
               {suggestedDate && (
-                <> · Suggested make-up: <strong style={{ color: 'var(--text-2)' }}>{formatDate(suggestedDate)}</strong></>
+                <> · Make-up: <strong style={{ color: 'var(--text-2)' }}>{formatDate(suggestedDate)}</strong></>
               )}
             </div>
           </div>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => onSelectDay(missedDay)}
-            style={{ color: 'var(--accent)', borderColor: 'var(--accent-dim)', flexShrink: 0 }}
-          >
-            Log it <ChevronRight size={13} />
-          </button>
+          <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => toggleSkippedDay(missedDate)}
+              title="Mark as intentionally skipped"
+              style={{ color: 'var(--text-3)' }}
+            >
+              <MinusCircle size={13} /> Skip
+            </button>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onSelectDay(missedDay)}
+              style={{ color: 'var(--accent)', borderColor: 'var(--accent-dim)' }}
+            >
+              Log it <ChevronRight size={13} />
+            </button>
+          </div>
         </div>
       ))}
     </div>

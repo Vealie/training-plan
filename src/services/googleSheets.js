@@ -139,10 +139,11 @@ export async function ensureSheetTabs(spreadsheetId, token) {
 
 /** Fetches all app data from the sheet in parallel. */
 export async function fetchAllData(spreadsheetId, token) {
-  const [sessionRows, exerciseRows, oneRMRows] = await Promise.all([
+  const [sessionRows, exerciseRows, oneRMRows, config] = await Promise.all([
     getValues(spreadsheetId, 'Sessions!A2:G', token),
     getValues(spreadsheetId, 'Exercises!A2:C', token),
     getValues(spreadsheetId, 'OneRM!A2:C', token),
+    readConfig(spreadsheetId, token),
   ]);
 
   // Parse sessions
@@ -180,7 +181,12 @@ export async function fetchAllData(spreadsheetId, token) {
     }
   });
 
-  return { sessions, exercises, oneRM };
+  // Parse skipped days from config
+  const skippedDays = config.skipped_days
+    ? config.skipped_days.split(',').filter(Boolean)
+    : [];
+
+  return { sessions, exercises, oneRM, skippedDays };
 }
 
 /**
@@ -206,6 +212,29 @@ export async function writeExercises(spreadsheetId, exercises, token) {
   }
   if (rows.length) {
     await putValues(spreadsheetId, 'Exercises!A2', rows, token);
+  }
+}
+
+/**
+ * Reads the Config tab and returns a key→value object.
+ */
+export async function readConfig(spreadsheetId, token) {
+  const rows = await getValues(spreadsheetId, 'Config!A2:B', token);
+  const config = {};
+  rows.forEach(row => {
+    if (row[0]) config[row[0]] = row[1] || '';
+  });
+  return config;
+}
+
+/**
+ * Overwrites the Config tab (rows 2+) with the provided key→value object.
+ */
+export async function writeConfig(spreadsheetId, config, token) {
+  await clearRange(spreadsheetId, 'Config!A2:B', token);
+  const rows = Object.entries(config).map(([k, v]) => [k, v]);
+  if (rows.length) {
+    await putValues(spreadsheetId, 'Config!A2', rows, token);
   }
 }
 

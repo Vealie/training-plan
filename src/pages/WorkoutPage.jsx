@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Edit2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit2, X, MinusCircle, RotateCcw } from 'lucide-react';
 import { useData } from '../contexts/DataContext.jsx';
 import { getWeekSchedule, dateForDayThisWeek, todayStr, formatDate } from '../utils/dateUtils.js';
 import { DAY_META, WORKOUT_DAYS, JS_DAY_TO_NAME } from '../data/defaultExercises.js';
@@ -21,7 +21,7 @@ function getDefaultActiveDay() {
 }
 
 export default function WorkoutPage() {
-  const { sessions, exercises } = useData();
+  const { sessions, exercises, skippedDays, toggleSkippedDay } = useData();
   const [activeDay, setActiveDay] = useState(getDefaultActiveDay());
   const [editing, setEditing] = useState(false);
 
@@ -50,6 +50,10 @@ export default function WorkoutPage() {
   }
 
   const meta = DAY_META[activeDay] || {};
+  const activeSkipped = skippedDays.includes(activeDate);
+  const activeDone = sessionDoneFor(activeDate, activeDay);
+  const activePast = new Date(activeDate + 'T12:00:00') < new Date(today + 'T00:00:00');
+  const showSkipToggle = activePast && !activeDone;
 
   return (
     <main className="page-content">
@@ -57,7 +61,8 @@ export default function WorkoutPage() {
       <div className="week-strip" style={{ marginBottom: '1.25rem' }}>
         {schedule.map(({ date, day, isToday, isPast }) => {
           const done = sessionDoneFor(date, day);
-          const missed = isPast && !done;
+          const skipped = skippedDays.includes(date);
+          const missed = isPast && !done && !skipped;
           return (
             <button
               key={day}
@@ -70,8 +75,9 @@ export default function WorkoutPage() {
               ].filter(Boolean).join(' ')}
               onClick={() => { setActiveDay(day); setEditing(false); }}
             >
-              {done && <span className="day-chip-dot done" />}
-              {missed && <span className="day-chip-dot missed" />}
+              {done    && <span className="day-chip-dot done" />}
+              {missed  && <span className="day-chip-dot missed" />}
+              {skipped && <span className="day-chip-dot" style={{ background: 'var(--text-3)' }} />}
               <span className="day-chip-name">{day.slice(0, 3)}</span>
               <span className="day-chip-date">
                 {new Date(date + 'T12:00:00').getDate()}
@@ -95,16 +101,28 @@ export default function WorkoutPage() {
             <span className="day-split-badge">{meta.emoji} {meta.split}</span>
             <span className="text-xs text-dim">{formatDate(activeDate)}</span>
             {activeDate === today && <span className="badge badge-blue">Today</span>}
-            {sessionDoneFor(activeDate, activeDay) && <span className="badge badge-green">Done ✓</span>}
+            {activeDone    && <span className="badge badge-green">Done ✓</span>}
+            {activeSkipped && <span className="badge" style={{ background: 'rgba(96,96,128,0.2)', color: 'var(--text-3)' }}>Skipped</span>}
           </div>
         </div>
-        <button
-          className={`btn btn-sm ${editing ? 'btn-ghost' : 'btn-ghost'}`}
-          onClick={() => setEditing(v => !v)}
-          style={{ alignSelf: 'flex-start' }}
-        >
-          {editing ? <><X size={13} /> Done</> : <><Edit2 size={13} /> Edit</>}
-        </button>
+        <div style={{ display: 'flex', gap: '0.4rem', alignSelf: 'flex-start' }}>
+          {showSkipToggle && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => toggleSkippedDay(activeDate)}
+              title={activeSkipped ? 'Mark as missed' : 'Mark as skipped (rest day)'}
+              style={{ color: activeSkipped ? 'var(--text-3)' : 'var(--text-3)' }}
+            >
+              {activeSkipped ? <><RotateCcw size={13} /> Unskip</> : <><MinusCircle size={13} /> Skip</>}
+            </button>
+          )}
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setEditing(v => !v)}
+          >
+            {editing ? <><X size={13} /> Done</> : <><Edit2 size={13} /> Edit</>}
+          </button>
+        </div>
       </div>
 
       {/* Exercise editor (edit mode) */}

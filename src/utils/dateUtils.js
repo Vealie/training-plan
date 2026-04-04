@@ -67,10 +67,11 @@ export function dateForDayThisWeek(dayName) {
  * Detects missed workout days over the past `lookback` days.
  * Returns array of { date, day } for each missed session.
  */
-export function getMissedSessions(sessions, lookback = 14) {
+export function getMissedSessions(sessions, skippedDays = [], lookback = 14) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const sessionDates = new Set(sessions.map(s => s.date));
+  const skippedSet = new Set(skippedDays);
   const missed = [];
 
   for (let i = 1; i <= lookback; i++) {
@@ -81,7 +82,7 @@ export function getMissedSessions(sessions, lookback = 14) {
 
     if (dayName) {
       const ds = dateStr(d);
-      if (!sessionDates.has(ds)) {
+      if (!sessionDates.has(ds) && !skippedSet.has(ds)) {
         missed.push({ date: ds, day: dayName });
       }
     }

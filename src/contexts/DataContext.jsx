@@ -14,6 +14,7 @@ import {
   writeSessions,
   writeExercises,
   writeOneRM,
+  writeConfig,
   ensureSheetTabs,
 } from '../services/googleSheets.js';
 import { ensureToken } from '../services/googleAuth.js';
@@ -53,30 +54,34 @@ export function DataProvider({ children }) {
   const { token, status: authStatus } = useAuth();
   const { setSyncing, setSuccess, setError: setSyncError } = useSync();
 
-  const [sessions,  setSessions]  = useState([]);
-  const [exercises, setExercises] = useState(mergeWithDefaults({}));
-  const [oneRM,     setOneRM]     = useState({});
-  const [sheetId,   setSheetIdState] = useState(() => localStorage.getItem(LS_SHEET) || null);
-  const [dataReady, setDataReady] = useState(false);
+  const [sessions,     setSessions]     = useState([]);
+  const [exercises,    setExercises]    = useState(mergeWithDefaults({}));
+  const [oneRM,        setOneRM]        = useState({});
+  const [skippedDays,  setSkippedDays]  = useState([]);
+  const [sheetId,      setSheetIdState] = useState(() => localStorage.getItem(LS_SHEET) || null);
+  const [dataReady,    setDataReady]    = useState(false);
 
   // Refs for debounced sync — always hold the latest state
-  const latestSessions  = useRef(sessions);
-  const latestExercises = useRef(exercises);
-  const latestOneRM     = useRef(oneRM);
-  const syncTimer       = useRef(null);
+  const latestSessions    = useRef(sessions);
+  const latestExercises   = useRef(exercises);
+  const latestOneRM       = useRef(oneRM);
+  const latestSkippedDays = useRef(skippedDays);
+  const syncTimer         = useRef(null);
 
   // Keep refs in sync
-  useEffect(() => { latestSessions.current  = sessions;  }, [sessions]);
-  useEffect(() => { latestExercises.current = exercises; }, [exercises]);
-  useEffect(() => { latestOneRM.current     = oneRM;     }, [oneRM]);
+  useEffect(() => { latestSessions.current    = sessions;    }, [sessions]);
+  useEffect(() => { latestExercises.current   = exercises;   }, [exercises]);
+  useEffect(() => { latestOneRM.current       = oneRM;       }, [oneRM]);
+  useEffect(() => { latestSkippedDays.current = skippedDays; }, [skippedDays]);
 
   // ── Hydrate from localStorage cache immediately on mount ──
   useEffect(() => {
     const cached = readCache();
     if (cached) {
-      if (cached.sessions)  setSessions(cached.sessions);
-      if (cached.exercises) setExercises(mergeWithDefaults(cached.exercises));
-      if (cached.oneRM)     setOneRM(cached.oneRM);
+      if (cached.sessions)    setSessions(cached.sessions);
+      if (cached.exercises)   setExercises(mergeWithDefaults(cached.exercises));
+      if (cached.oneRM)       setOneRM(cached.oneRM);
+      if (cached.skippedDays) setSkippedDays(cached.skippedDays);
     }
   }, []);
 
@@ -98,9 +103,10 @@ export function DataProvider({ children }) {
         setSessions(data.sessions);
         setExercises(merged);
         setOneRM(data.oneRM);
+        setSkippedDays(data.skippedDays || []);
         setDataReady(true);
 
-        writeCache({ sessions: data.sessions, exercises: merged, oneRM: data.oneRM });
+        writeCache({ sessions: data.sessions, exercises: merged, oneRM: data.oneRM, skippedDays: data.skippedDays || [] });
         setSuccess();
       } catch (err) {
         console.error('Initial fetch failed:', err);
@@ -122,10 +128,12 @@ export function DataProvider({ children }) {
       if (!sheetId) return;
       try {
         const freshToken = await ensureToken();
+        const skipped = latestSkippedDays.current;
         await Promise.all([
           writeSessions(sheetId,  latestSessions.current,  freshToken),
           writeExercises(sheetId, latestExercises.current, freshToken),
           writeOneRM(sheetId,     latestOneRM.current,     freshToken),
+          writeConfig(sheetId, { skipped_days: skipped.join(',') }, freshToken),
         ]);
         setSuccess();
 
@@ -197,6 +205,18 @@ export function DataProvider({ children }) {
     scheduleSync();
   }, [scheduleSync]);
 
+  /** Toggle a date as intentionally skipped (removes red missed indicator) */
+  const toggleSkippedDay = useCallback((date) => {
+    setSkippedDays(prev => {
+      const next = prev.includes(date)
+        ? prev.filter(d => d !== date)
+        : [...prev, date];
+      writeCache({ sessions: latestSessions.current, exercises: latestExercises.current, oneRM: latestOneRM.current, skippedDays: next });
+      return next;
+    });
+    scheduleSync();
+  }, [scheduleSync]);
+
   const setSheetId = useCallback((id) => {
     localStorage.setItem(LS_SHEET, id);
     setSheetIdState(id);
@@ -207,6 +227,7 @@ export function DataProvider({ children }) {
       sessions,
       exercises,
       oneRM,
+      skippedDays,
       sheetId,
       dataReady,
       setSheetId,
@@ -214,6 +235,7 @@ export function DataProvider({ children }) {
       removeSet,
       saveExercises,
       saveOneRM,
+      toggleSkippedDay,
     }}>
       {children}
     </DataContext.Provider>
